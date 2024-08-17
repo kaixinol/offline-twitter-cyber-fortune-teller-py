@@ -1,0 +1,23 @@
+[project]
+name = "offline-twitter-cyber-fortune-teller-py"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "kaesinol", email = "keiplyer@gmail.com"},
+]
+dependencies = [
+    "LangChain>=0.2.14",
+    "playwright>=1.46.0",
+    "unstructured>=0.11.8",
+]
+requires-python = ">=3.11"
+readme = "README.md"
+license = {text = "GPL"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+
+[tool.pdm]
+distribution = true
