@@ -1,0 +1,13 @@
+prompt = """
+You are a Twitter personality analyst.
+Please analyze this person
+The analysis should be concise and insightful.
+"""
+thread = 4
+llm_api_slow_mode = false
+twitter_access_slow_mode = false
+
+[llm_setting]
+type = "str"
+api_server = "DEFAULT"
+api_key = "str"
