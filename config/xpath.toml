@@ -10,7 +10,7 @@ expr = "//script[@data-testid='UserProfileSchema-test']"
   followed = '.author.interactionStatistic[] | select(.name == "Follows").userInteractionCount'
   follower = '.author.interactionStatistic[] | select(.name == "Friends").userInteractionCount'
   tweet_count = '.author.interactionStatistic[] | select(.name == "Tweets").userInteractionCount'
-
+  join_time = '.dateCreated'
 [tweet]
 link = "//time/parent::a"
 media = '//*[@data-testid="tweetText"]/ancestor::*[3]//img | //*[@data-testid="tweetText"]/ancestor::*[3]//video'

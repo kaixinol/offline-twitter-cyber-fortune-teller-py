@@ -8,6 +8,14 @@ class JQ(BaseModel):
     followed: str
     follower: str
     tweet_count: str
+    join_time: str
+
+
+class Profile(JQ):
+    followed: int
+    follower: int
+    tweet_count: int
+    birthday: int | None
 
 
 class ProfileJson(BaseModel):
@@ -29,14 +37,13 @@ class XPath(BaseModel):
 
 
 class LLMSetting(BaseModel):
-    type: str
     api_server: str = "DEFAULT"
     api_key: str
 
 
 class TwitterAnalysisConfig(BaseModel):
     prompt: str
-    thread: int
+    thread: int | float
     llm_api_slow_mode: bool
     twitter_access_slow_mode: bool
     llm_setting: LLMSetting
