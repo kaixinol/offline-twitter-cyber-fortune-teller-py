@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -15,7 +17,8 @@ class Profile(JQ):
     followed: int
     follower: int
     tweet_count: int
-    birthday: int | None
+    join_time: datetime
+    birthday: datetime | None
 
 
 class ProfileJson(BaseModel):
