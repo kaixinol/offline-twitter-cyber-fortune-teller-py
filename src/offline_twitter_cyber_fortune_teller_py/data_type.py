@@ -18,7 +18,6 @@ class Profile(JQ):
     follower: int
     tweet_count: int
     join_time: datetime
-    birthday: datetime | None
 
 
 class ProfileJson(BaseModel):
@@ -34,7 +33,6 @@ class Tweet(BaseModel):
 
 
 class XPath(BaseModel):
-    birthday_var: str
     tweet: Tweet
     profile_json: ProfileJson
 

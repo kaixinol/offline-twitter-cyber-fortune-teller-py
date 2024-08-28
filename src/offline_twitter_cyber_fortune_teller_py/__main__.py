@@ -2,10 +2,12 @@ import asyncio
 from pathlib import Path
 
 from playwright.async_api import async_playwright
-from . import data_folder, config
-from rich.prompt import Prompt, Confirm
 from rich.progress import track
+from rich.prompt import Prompt, Confirm
+
+from . import data_folder, config
 from .lock import update
+from .spider import crawl_profile
 
 
 async def set_cookie():
@@ -45,6 +47,7 @@ async def main():
             _ = await browser.new_page()
             update({id(_): False})
             available_page.append(_)
+        print(await crawl_profile(main_page))
 
 
 asyncio.run(main())
