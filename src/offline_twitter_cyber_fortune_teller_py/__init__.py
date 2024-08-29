@@ -15,5 +15,3 @@ if math.isnan(config.thread):
     config.thread = os.cpu_count()
 if not data_folder.exists():
     data_folder.mkdir()
-print(xpath)
-print(config)

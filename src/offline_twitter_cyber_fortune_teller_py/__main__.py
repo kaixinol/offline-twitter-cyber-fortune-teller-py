@@ -1,11 +1,13 @@
 import asyncio
+from datetime import datetime
 from pathlib import Path
 
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, TimeoutError
 from rich.progress import track
 from rich.prompt import Prompt, Confirm
+from tqdm.asyncio import tqdm
 
-from . import data_folder, config
+from . import data_folder, config, xpath
 from .lock import update
 from .spider import crawl_profile
 
@@ -32,22 +34,61 @@ async def main():
     ):
         await set_cookie()
     async with async_playwright() as pw:
-        browser = await pw.chromium.launch_persistent_context(user_data_dir=data_folder)
+        browser = await pw.chromium.launch_persistent_context(
+            user_data_dir=data_folder, headless=False
+        )
         main_page = browser.pages[0]
         username = Prompt.ask("What's your username?(e.g. @jack or jack)")
         if not username:
             print("Please enter your username!")
         await main_page.goto(f"https://x.com/{username}")
         available_page = []
-
-        for _ in track(
-            range(config.thread),
-            description="Preparing..",
-        ):
+        pages = set()
+        for _ in track(range(config.thread), description="Preparing..", transient=True):
             _ = await browser.new_page()
             update({id(_): False})
             available_page.append(_)
-        print(await crawl_profile(main_page))
+        user_profile = await crawl_profile(main_page)
+        progress = tqdm(
+            total=min(50, user_profile.tweet_count),
+            desc="Get tweet links that meet the requirements",
+            leave=False,
+            unit="tweet",
+        )
+        num = 0
+        while not (num := num + 1) >= min(50, user_profile.tweet_count):
+            await main_page.evaluate("window.scrollBy(0, 300)")
+            await main_page.locator(xpath.tweet.link).last.wait_for(state="visible")
+
+            async def get_tweet_link(element) -> list[tuple[datetime, str]]:
+                ret = []
+                for i in element:
+                    try:
+                        ret.append(
+                            (
+                                datetime.fromisoformat(
+                                    (
+                                        await i.locator("time").get_attribute(
+                                            "datetime"
+                                        )
+                                    ).rstrip("Z")
+                                ),
+                                await i.get_attribute("href"),
+                            )
+                        )
+                    except TimeoutError:
+                        continue
+                return ret
+
+            _ = await main_page.locator(xpath.tweet.link).all()
+            _ = set(await get_tweet_link(_))
+            progress.update(len(_ - pages))
+            pages |= _
+            await asyncio.sleep(1)
+        progress.close()
+        ordered_pages = list(pages)
+        ordered_pages.sort(key=lambda x: x[0])
+        print(ordered_pages)
 
 
 asyncio.run(main())
