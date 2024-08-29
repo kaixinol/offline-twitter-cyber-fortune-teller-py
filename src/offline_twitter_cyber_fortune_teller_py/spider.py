@@ -1,3 +1,5 @@
+import asyncio
+import functools
 from datetime import datetime
 from json import loads
 from typing import get_type_hints
@@ -7,6 +9,8 @@ from playwright.async_api import Page
 
 from . import xpath
 from .data_type import Profile, Tweet
+from .lock import mutex, update
+from random import randint
 
 
 async def crawl_profile(page: Page) -> Profile:
@@ -33,4 +37,22 @@ async def crawl_profile(page: Page) -> Profile:
     return Profile(**ret)
 
 
-async def crawl_tweet() -> Tweet: ...
+def auto_lock(func):
+    @functools.wraps(func)
+    async def wrapper(page: Page, url: str, progress):
+        try:
+            with mutex:
+                update({id(page): True})
+            result = await func(page, url)
+        finally:
+            with mutex:
+                update({id(page): False})
+            progress.update()
+        return result
+
+    return wrapper
+
+
+@auto_lock
+async def crawl_tweet(page: Page, url: str) -> Tweet:
+    await asyncio.sleep(randint(100, 1000) / 1000)

@@ -1,15 +1,14 @@
-import asyncio
 from datetime import datetime
 from pathlib import Path
-
-from playwright.async_api import async_playwright, TimeoutError
+import asyncio
+from playwright.async_api import async_playwright, TimeoutError, Page
 from rich.progress import track
 from rich.prompt import Prompt, Confirm
 from tqdm.asyncio import tqdm
 
 from . import data_folder, config, xpath
-from .lock import update
-from .spider import crawl_profile
+from .lock import update, lock
+from .spider import crawl_profile, crawl_tweet
 
 
 async def set_cookie():
@@ -58,7 +57,9 @@ async def main():
         num = 0
         while not (num := num + 1) >= min(50, user_profile.tweet_count):
             await main_page.evaluate("window.scrollBy(0, 300)")
-            await main_page.locator(xpath.tweet.link).last.wait_for(state="visible")
+            await main_page.locator(xpath.tweet.link).last.wait_for(
+                state="visible", timeout=10000
+            )
 
             async def get_tweet_link(element) -> list[tuple[datetime, str]]:
                 ret = []
@@ -80,6 +81,20 @@ async def main():
                         continue
                 return ret
 
+            async def get_available_page() -> Page:
+                available_pages = [
+                    page
+                    for i, using in lock.items()
+                    if not using
+                    for page in available_page
+                    if id(page) == i
+                ]
+                if available_pages:
+                    return available_pages[0]
+
+                await asyncio.sleep(1)
+                return await get_available_page()
+
             _ = await main_page.locator(xpath.tweet.link).all()
             _ = set(await get_tweet_link(_))
             progress.update(len(_ - pages))
@@ -88,7 +103,16 @@ async def main():
         progress.close()
         ordered_pages = list(pages)
         ordered_pages.sort(key=lambda x: x[0])
-        print(ordered_pages)
+        progress = tqdm(
+            total=len(ordered_pages),
+            desc="Extracting information from tweets",
+            leave=False,
+            unit="tweet",
+        )
+        for i in ordered_pages:
+            await asyncio.create_task(
+                crawl_tweet(await get_available_page(), i, progress)
+            )
 
 
 asyncio.run(main())

@@ -12,6 +12,6 @@ xpath = XPath(**load(open(_base / "config" / "xpath.toml", "rb")))
 if isinstance(config.thread, float) and not math.isnan(config.thread):
     raise ValueError("thread value only allows NaN or integer values")
 if math.isnan(config.thread):
-    config.thread = os.cpu_count()
+    config.thread = os.cpu_count() // 2
 if not data_folder.exists():
     data_folder.mkdir()
