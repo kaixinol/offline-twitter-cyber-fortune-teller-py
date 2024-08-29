@@ -18,3 +18,10 @@ playwright install
 playwright install-deps
 ```
 - 配置`/config/config.toml`
+## 启动
+```commandline
+pdm venv activate
+source ...
+cd src
+python -m offline_twitter_cyber_fortune_teller_py
+```
