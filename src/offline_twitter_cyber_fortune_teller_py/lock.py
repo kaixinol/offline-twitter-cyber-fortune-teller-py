@@ -1,14 +1,17 @@
-import threading
+import asyncio
 
 lock: dict[int, bool] = {}
-mutex = threading.Lock()
+mutex = asyncio.Lock()
 
 
-def update(data: dict):
+async def update(data: dict):
     global lock
-    lock |= data
+    async with mutex:
+        lock |= data
+        print(lock)
 
 
-def get():
+async def get():
     global lock
-    return lock
+    async with mutex:
+        return lock

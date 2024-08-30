@@ -11,6 +11,6 @@ tweet_count = '.author.interactionStatistic[] | select(.name == "Tweets").userIn
 join_time = '.dateCreated'
 [tweet]
 link = "//time/parent::a"
-media = '//*[@data-testid="tweetText"]/ancestor::*[3]//img | //*[@data-testid="tweetText"]/ancestor::*[3]//video'
-text = '//*[@data-testid="tweetText"]'
+media = "xpath=/html/body/div[1]/div/div/div[2]/main/div/div/div/div/div/section/div/div/div[1]/div/div/article/div/div/div[3]/div[2]" #'//*[@data-testid="tweetText"]/ancestor::*[3]//img | //*[@data-testid="tweetText"]/ancestor::*[3]//video'
+text =  "xpath=/html/body/div[1]/div/div/div[2]/main/div/div/div/div/div/section/div/div/div[1]/div/div/article/div/div/div[3]/div[1]/div/div"#'//*[@data-testid="tweetText"]'
 time = "//time/@datetime"

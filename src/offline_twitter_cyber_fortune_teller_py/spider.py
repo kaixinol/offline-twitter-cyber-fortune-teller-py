@@ -1,16 +1,14 @@
-import asyncio
-import functools
+from collections.abc import Callable
 from datetime import datetime
 from json import loads
-from typing import get_type_hints
+from typing import get_type_hints, Awaitable
 
 from jq import compile
-from playwright.async_api import Page
+from playwright.async_api import Page, Error
 
 from . import xpath
 from .data_type import Profile, Tweet
-from .lock import mutex, update
-from random import randint
+from .lock import update
 
 
 async def crawl_profile(page: Page) -> Profile:
@@ -37,22 +35,41 @@ async def crawl_profile(page: Page) -> Profile:
     return Profile(**ret)
 
 
-def auto_lock(func):
-    @functools.wraps(func)
-    async def wrapper(page: Page, url: str, progress):
-        try:
-            with mutex:
-                update({id(page): True})
-            result = await func(page, url)
-        finally:
-            with mutex:
-                update({id(page): False})
-            progress.update()
-        return result
+async def crawl_tweet(
+    page: Callable[[], Awaitable[Page]], url_with_time: tuple[datetime, str], progress
+) -> Tweet:
+    (
+        time,
+        url,
+    ) = url_with_time
+    print(f"{url} 尝试获取page()")
+    page = await page()
+    print(f"{id(page)}获取成功")
+    await page.goto(url)
+    await page.route(
+        "**/*",
+        lambda route, request: route.abort()
+        if request.resource_type in ["image", "media"]
+        else route.continue_(),
+    )
+    print(f"{id(page)}访问成功")
 
-    return wrapper
-
-
-@auto_lock
-async def crawl_tweet(page: Page, url: str) -> Tweet:
-    await asyncio.sleep(randint(100, 1000) / 1000)
+    ret: dict[str, object] = {}
+    try:
+        await page.locator(xpath.tweet.text).first.wait_for(
+            state="visible", timeout=50000
+        )
+        ret["text"] = await page.locator(xpath.tweet.text).inner_text()
+    except Error:
+        ret["text"] = None
+    print(f"{id(page)} {ret['text']}获取成功")
+    try:
+        ret["media"] = await page.locator(xpath.tweet.media).first.wait_for(
+            state="visible", timeout=50000
+        )
+    except Error:
+        ret["media"] = None
+    print(f"{id(page)} {ret['media']}获取成功")
+    await update({id(page): False})
+    print(f"{id(page)} 解锁成功")
+    progress.update()

@@ -27,8 +27,8 @@ class ProfileJson(BaseModel):
 
 class Tweet(BaseModel):
     link: str
-    media: str
-    text: str
+    media: str | None
+    text: str | None
     time: str
 
 
@@ -48,3 +48,4 @@ class TwitterAnalysisConfig(BaseModel):
     llm_api_slow_mode: bool
     twitter_access_slow_mode: bool
     llm_setting: LLMSetting
+    pages: int
