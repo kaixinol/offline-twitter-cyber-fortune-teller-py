@@ -2,13 +2,12 @@ from datetime import datetime
 from pathlib import Path
 import asyncio
 
-from playwright.async_api import async_playwright, TimeoutError, Page
+from playwright.async_api import async_playwright, TimeoutError
 from rich.progress import track
 from rich.prompt import Prompt, Confirm
 from tqdm.asyncio import tqdm
 
 from . import data_folder, config, xpath
-from .lock import update, get
 from .spider import crawl_profile, crawl_tweet
 
 
@@ -53,7 +52,6 @@ async def main():
         pages = set()
         for _ in track(range(config.thread), description="Preparing..", transient=True):
             _ = await browser.new_page()
-            await update({id(_): False})
             available_page.append(_)
         user_profile = await crawl_profile(main_page)
         progress = tqdm(
@@ -63,7 +61,7 @@ async def main():
             unit="tweet",
         )
         num = 0
-        while not (num := num + 1) >= min(config.pages, user_profile.tweet_count):
+        while not (num >= min(config.pages, user_profile.tweet_count)):
             await main_page.evaluate("window.scrollBy(0, 300)")
             await main_page.locator(xpath.tweet.link).last.wait_for(
                 state="visible", timeout=10000
@@ -89,51 +87,35 @@ async def main():
                         continue
                 return ret
 
-            async def get_available_page() -> Page:
-                available_pages = [
-                    page
-                    for i, using in (await get()).items()
-                    if not using
-                    for page in available_page
-                    if id(page) == i
-                ]
-                if available_pages:
-                    await update({id(available_pages[0]): True})
-                    return available_pages[0]
-                await asyncio.sleep(
-                    (lambda x: 4000 // (2**x) if x <= 2 else 0)(len(available_pages))
-                )
-                return await get_available_page()
-
             _ = await main_page.locator(xpath.tweet.link).all()
             _ = set(await get_tweet_link(_))
             progress.update(len(_ - pages))
+            num += len(_ - pages)
             pages |= _
             await asyncio.sleep(0.1)
         progress.close()
-        ordered_pages = [(time, "https://x.com" + link) for time, link in pages]
-        ordered_pages.sort(key=lambda x: x[0])
+        ordered_url: list[tuple[datetime, str]] = [
+            (time, "https://x.com" + link) for time, link in pages
+        ]
+        ordered_url.sort(key=lambda x: x[0])
         progress = tqdm(
-            total=len(ordered_pages),
+            total=len(ordered_url),
             desc="Extracting information from tweets",
             leave=False,
             unit="tweet",
         )
-        tasks = [
-            asyncio.create_task(crawl_tweet(get_available_page, i, progress))
-            for i in ordered_pages
-        ]
-        done, pending = await asyncio.wait(
-            tasks, timeout=30, return_when=asyncio.ALL_COMPLETED
-        )
+        semaphore = asyncio.Semaphore(config.thread)
 
-        # 处理超时任务
-        for task in pending:
-            task.cancel()
-            print("A task was cancelled due to timeout")
+        async def worker(url):
+            async with semaphore:
+                page = available_page.pop()
+                try:
+                    content = await crawl_tweet(page, url, progress)
+                    print(content)
+                finally:
+                    available_page.append(page)
 
-        results = [task.result() for task in done]
-        print(results)
+        await asyncio.gather(*(worker(_) for _ in ordered_url))
 
 
 asyncio.run(main())

@@ -1,14 +1,16 @@
-from collections.abc import Callable
 from datetime import datetime
 from json import loads
-from typing import get_type_hints, Awaitable
+from typing import get_type_hints
 
 from jq import compile
 from playwright.async_api import Page, Error
 
-from . import xpath
+from . import xpath, config
 from .data_type import Profile, Tweet
-from .lock import update
+
+
+class TweetData(Tweet):
+    time: datetime
 
 
 async def crawl_profile(page: Page) -> Profile:
@@ -36,40 +38,35 @@ async def crawl_profile(page: Page) -> Profile:
 
 
 async def crawl_tweet(
-    page: Callable[[], Awaitable[Page]], url_with_time: tuple[datetime, str], progress
-) -> Tweet:
+    page: Page, url_with_time: tuple[datetime, str], progress
+) -> TweetData:
     (
         time,
         url,
     ) = url_with_time
-    print(f"{url} 尝试获取page()")
-    page = await page()
-    print(f"{id(page)}获取成功")
-    await page.goto(url)
+    await page.goto(url, wait_until="domcontentloaded")
     await page.route(
         "**/*",
         lambda route, request: route.abort()
         if request.resource_type in ["image", "media"]
         else route.continue_(),
     )
-    print(f"{id(page)}访问成功")
-
     ret: dict[str, object] = {}
     try:
         await page.locator(xpath.tweet.text).first.wait_for(
-            state="visible", timeout=50000
+            state="visible", timeout=config.delay
         )
         ret["text"] = await page.locator(xpath.tweet.text).inner_text()
     except Error:
         ret["text"] = None
-    print(f"{id(page)} {ret['text']}获取成功")
     try:
         ret["media"] = await page.locator(xpath.tweet.media).first.wait_for(
-            state="visible", timeout=50000
+            state="visible", timeout=config.delay
         )
     except Error:
         ret["media"] = None
-    print(f"{id(page)} {ret['media']}获取成功")
-    await update({id(page): False})
-    print(f"{id(page)} 解锁成功")
     progress.update()
+    ret["link"] = url
+    ret["time"] = time
+
+    return TweetData(**ret)

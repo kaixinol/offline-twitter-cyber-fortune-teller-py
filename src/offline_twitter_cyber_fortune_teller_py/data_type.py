@@ -49,3 +49,4 @@ class TwitterAnalysisConfig(BaseModel):
     twitter_access_slow_mode: bool
     llm_setting: LLMSetting
     pages: int
+    delay: int
