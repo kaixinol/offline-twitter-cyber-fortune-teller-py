@@ -5,12 +5,8 @@ from typing import get_type_hints
 from jq import compile
 from playwright.async_api import Page, Error
 
-from . import xpath, config
+from . import xpath, config, inject
 from .data_type import Profile, Tweet
-
-
-class TweetData(Tweet):
-    time: datetime
 
 
 async def crawl_profile(page: Page) -> Profile:
@@ -39,19 +35,20 @@ async def crawl_profile(page: Page) -> Profile:
 
 async def crawl_tweet(
     page: Page, url_with_time: tuple[datetime, str], progress
-) -> TweetData:
+) -> Tweet:
     (
         time,
         url,
     ) = url_with_time
     await page.goto(url, wait_until="domcontentloaded")
+    await page.evaluate(inject)
     await page.route(
         "**/*",
         lambda route, request: route.abort()
         if request.resource_type in ["image", "media"]
         else route.continue_(),
     )
-    ret: dict[str, object] = {}
+    ret: dict[str, str | datetime | None] = {}
     try:
         await page.locator(xpath.tweet.text).first.wait_for(
             state="visible", timeout=config.delay
@@ -69,4 +66,4 @@ async def crawl_tweet(
     ret["link"] = url
     ret["time"] = time
 
-    return TweetData(**ret)
+    return Tweet(**ret)

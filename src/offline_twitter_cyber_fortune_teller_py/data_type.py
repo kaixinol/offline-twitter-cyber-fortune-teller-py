@@ -25,15 +25,19 @@ class ProfileJson(BaseModel):
     jq: JQ
 
 
-class Tweet(BaseModel):
+class TweetXPath(BaseModel):
     link: str
     media: str | None
     text: str | None
     time: str
 
 
+class Tweet(TweetXPath):
+    time: datetime
+
+
 class XPath(BaseModel):
-    tweet: Tweet
+    tweet: TweetXPath
     profile_json: ProfileJson
 
 
