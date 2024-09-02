@@ -10,5 +10,6 @@ twitter_access_slow_mode = false
 pages = 50
 delay = 5000 # ms
 [llm_setting]
+model = "gpt3.5 turbo"
 api_server = "DEFAULT"
 api_key = "str"

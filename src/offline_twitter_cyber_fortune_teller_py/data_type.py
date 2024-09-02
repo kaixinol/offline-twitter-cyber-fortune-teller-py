@@ -27,13 +27,15 @@ class ProfileJson(BaseModel):
 
 class TweetXPath(BaseModel):
     link: str
-    media: str | None
-    text: str | None
+    media: str
+    text: str
     time: str
 
 
 class Tweet(TweetXPath):
     time: datetime
+    media: list[str] | None
+    text: str | None
 
 
 class XPath(BaseModel):
@@ -42,8 +44,9 @@ class XPath(BaseModel):
 
 
 class LLMSetting(BaseModel):
-    api_server: str = "DEFAULT"
+    api_server: str
     api_key: str
+    model: str
 
 
 class TwitterAnalysisConfig(BaseModel):
