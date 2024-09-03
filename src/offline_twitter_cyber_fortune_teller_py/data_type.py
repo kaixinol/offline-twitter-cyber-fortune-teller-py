@@ -38,9 +38,15 @@ class Tweet(TweetXPath):
     text: str | None
 
 
+class TwitterMediaDownloader(BaseModel):
+    click: str
+    button: str
+
+
 class XPath(BaseModel):
     tweet: TweetXPath
     profile_json: ProfileJson
+    TMD: TwitterMediaDownloader
 
 
 class LLMSetting(BaseModel):

@@ -11,6 +11,15 @@ tweet_count = '.author.interactionStatistic[] | select(.name == "Tweets").userIn
 join_time = '.dateCreated'
 [tweet]
 link = "//time/parent::a"
-media = "xpath=/html/body/div[1]/div/div/div[2]/main/div/div/div/div/div/section/div/div/div[1]/div/div/article/div/div/div[3]/div[2]" #'//*[@data-testid="tweetText"]/ancestor::*[3]//img | //*[@data-testid="tweetText"]/ancestor::*[3]//video'
-text =  "xpath=/html/body/div[1]/div/div/div[2]/main/div/div/div/div/div/section/div/div/div[1]/div/div/article/div/div/div[3]/div[1]/div/div"#'//*[@data-testid="tweetText"]'
+media = '//div[@data-testid="tweetPhoto"] | //div[@data-testid="videoComponent"]'
+text =  '//*[@data-testid="tweetText"]'
 time = "//time/@datetime"
+frame = '(//div[@data-testid="cellInnerDiv"])[1]'
+sensitive_content = "//div/div/div/div/div[2]/div/button"
+[TMD]
+button = '//div[contains(@class, "tmd-down")]'
+click = """
+let element = document.querySelector('div.tmd-down');
+element.addEventListener('click', () => hasClickEvent = true);
+element.dispatchEvent(new Event('click'));
+""" # Avoid being unable to download images of private posts

@@ -1,7 +1,9 @@
+import re
 from datetime import datetime
 from json import loads
 from typing import get_type_hints
 
+from html2text import html2text
 from jq import compile
 from playwright.async_api import Page, Error
 
@@ -10,7 +12,7 @@ from .data_type import Profile, Tweet
 
 
 async def crawl_profile(page: Page) -> Profile:
-    def get_data(expr: str, json: str | dict) -> str:
+    def get_jq_result(expr: str, json: str | dict) -> str:
         if isinstance(json, str):
             json = loads(json)
         return compile(expr).input_value(json).first()
@@ -27,9 +29,11 @@ async def crawl_profile(page: Page) -> Profile:
     ret = {}
     for i in member.keys():
         if i not in handler:
-            ret[i] = get_data(getattr(xpath.profile_json.jq, i), json_text)
+            ret[i] = get_jq_result(getattr(xpath.profile_json.jq, i), json_text)
         else:
-            ret[i] = handler[i](get_data(getattr(xpath.profile_json.jq, i), json_text))
+            ret[i] = handler[i](
+                get_jq_result(getattr(xpath.profile_json.jq, i), json_text)
+            )
     return Profile(**ret)
 
 
@@ -46,11 +50,30 @@ async def crawl_tweet(
         # TODO: 实现在Tweet里找按钮，找不到返回None，找到了返回list[link: str]
 
     async def get_text() -> str | None:
+        def replace_emoji(string: str) -> str:
+            if re.search(
+                r"!\[(.*?)]\(https://.*\.twimg\.com/emoji/(.*?)\.svg\)",
+                string,
+                re.MULTILINE,
+            ):
+                return re.sub(
+                    r"!\[(.*?)]\(https://.*\.twimg\.com/emoji/(.*?)\.svg\)",
+                    r"\1",
+                    string,
+                    re.MULTILINE,
+                )
+            return string
+
         try:
             await page.locator(xpath.tweet.text).first.wait_for(
                 state="visible", timeout=config.delay
             )
-            return await page.locator(xpath.tweet.text).inner_text()
+            return (
+                replace_emoji(
+                    html2text(await page.locator(xpath.tweet.text).inner_text())
+                )
+                or None
+            )
         except Error:
             return None
 
