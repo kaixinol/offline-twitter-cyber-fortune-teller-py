@@ -30,12 +30,14 @@ class TweetXPath(BaseModel):
     media: str
     text: str
     time: str
+    frame: str
 
 
-class Tweet(TweetXPath):
+class Tweet(BaseModel):
     time: datetime
     media: list[str] | None
     text: str | None
+    link: str
 
 
 class TwitterMediaDownloader(BaseModel):

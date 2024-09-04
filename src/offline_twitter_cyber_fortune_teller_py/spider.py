@@ -1,4 +1,5 @@
 import re
+from collections.abc import Callable
 from datetime import datetime
 from json import loads
 from typing import get_type_hints
@@ -19,10 +20,10 @@ async def crawl_profile(page: Page) -> Profile:
 
     profile = page.locator(xpath.profile_json.expr)
     json_text = await profile.text_content()
-    handler = {
-        "followed": lambda x: int(x),
-        "follower": lambda x: int(x),
-        "tweet_count": lambda x: int(x),
+    handler: dict[str, Callable[[str], int | datetime]] = {
+        "followed": int,
+        "follower": int,
+        "tweet_count": int,
         "join_time": lambda x: datetime.fromisoformat(x.rstrip("Z")),
     }
     member = get_type_hints(Profile)
@@ -51,13 +52,14 @@ async def crawl_tweet(
 
     async def get_text() -> str | None:
         def replace_emoji(string: str) -> str:
+            regex = r"!\[(.*?)]\(https://.*\.twimg\.com/emoji/(.*?)\.svg\)"
             if re.search(
-                r"!\[(.*?)]\(https://.*\.twimg\.com/emoji/(.*?)\.svg\)",
+                regex,
                 string,
                 re.MULTILINE,
             ):
                 return re.sub(
-                    r"!\[(.*?)]\(https://.*\.twimg\.com/emoji/(.*?)\.svg\)",
+                    regex,
                     r"\1",
                     string,
                     re.MULTILINE,
@@ -71,7 +73,7 @@ async def crawl_tweet(
             return (
                 replace_emoji(
                     html2text(await page.locator(xpath.tweet.text).inner_text())
-                )
+                ).strip()
                 or None
             )
         except Error:
