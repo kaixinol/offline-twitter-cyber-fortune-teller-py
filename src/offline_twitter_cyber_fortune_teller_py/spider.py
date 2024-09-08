@@ -1,5 +1,6 @@
 import re
 from collections.abc import Callable
+from contextlib import suppress
 from datetime import datetime
 from json import loads
 from typing import get_type_hints
@@ -7,7 +8,8 @@ from typing import get_type_hints
 from html2text import html2text
 from jq import compile
 from playwright.async_api import Page, Error
-
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+import asyncio
 from . import xpath, config, inject
 from .data_type import Profile, Tweet
 
@@ -47,8 +49,23 @@ async def crawl_tweet(
     ) = url_with_time
 
     async def get_media() -> list[str] | None:
-        ...
-        # TODO: 实现在Tweet里找按钮，找不到返回None，找到了返回list[link: str]
+        with suppress(PlaywrightTimeoutError):
+            await frame.locator(xpath.tweet.sensitive_content).first.wait_for(
+                state="visible", timeout=config.delay // 10
+            )
+        try:
+            await frame.locator(xpath.tweet.media).first.wait_for(
+                state="visible", timeout=config.delay // 10
+            )
+            tmd = frame.locator(xpath.TMD.button).first
+            await tmd.wait_for(state="visible", timeout=config.delay // 10)
+            await page.evaluate(xpath.TMD.click)
+            while not await frame.evaluate("document.isParsed;"):
+                await asyncio.sleep(0.1)
+            return await frame.evaluate("document.fileList;")
+
+        except PlaywrightTimeoutError:
+            return None
 
     async def get_text() -> str | None:
         def replace_emoji(string: str) -> str:
@@ -67,8 +84,8 @@ async def crawl_tweet(
             return string
 
         try:
-            await page.locator(xpath.tweet.text).first.wait_for(
-                state="visible", timeout=config.delay
+            await frame.locator(xpath.tweet.text).first.wait_for(
+                state="visible", timeout=config.delay // 10
             )
             return (
                 replace_emoji(
@@ -87,9 +104,12 @@ async def crawl_tweet(
         if request.resource_type in ["image", "media"]
         else route.continue_(),
     )
+    frame = page.locator(xpath.tweet.frame)
+    await frame.first.wait_for(state="visible", timeout=config.delay)
     ret: dict[str, str | datetime | None] = {}
     progress.update()
     ret["link"] = url
     ret["time"] = time
-
+    ret["text"] = await get_text()
+    ret["media"] = await get_media()
     return Tweet(**ret)

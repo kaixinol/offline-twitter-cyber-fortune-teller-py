@@ -31,6 +31,7 @@ class TweetXPath(BaseModel):
     text: str
     time: str
     frame: str
+    sensitive_content: str
 
 
 class Tweet(BaseModel):

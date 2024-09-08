@@ -63,9 +63,6 @@ async def main():
         num = 0
         while not (num >= min(config.pages, user_profile.tweet_count)):
             await main_page.evaluate("window.scrollBy(0, 300)")
-            await main_page.locator(xpath.tweet.link).last.wait_for(
-                state="visible", timeout=10000
-            )
 
             async def get_tweet_link(element) -> list[tuple[datetime, str]]:
                 ret = []
@@ -92,8 +89,9 @@ async def main():
             progress.update(len(_ - pages))
             num += len(_ - pages)
             pages |= _
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.5)
         progress.close()
+        await main_page.close()
         ordered_url: list[tuple[datetime, str]] = [
             (time, "https://x.com" + link) for time, link in pages
         ]
@@ -110,12 +108,17 @@ async def main():
             async with semaphore:
                 page = available_page.pop()
                 try:
-                    content = await crawl_tweet(page, url, progress)
-                    print(content)
+                    print(await crawl_tweet(page, url, progress))  # TODO: 实现LLM分析
                 finally:
                     available_page.append(page)
 
-        await asyncio.gather(*(worker(_) for _ in ordered_url))
+        tasks = await asyncio.gather(
+            *(worker(_) for _ in ordered_url), return_exceptions=True
+        )
+        await browser.close()
+    for task in tasks:
+        if isinstance(task, Exception):
+            print(f"{task.with_traceback()}")
 
 
 asyncio.run(main())

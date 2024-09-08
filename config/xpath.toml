@@ -19,7 +19,7 @@ sensitive_content = "//div/div/div/div/div[2]/div/button"
 [TMD]
 button = '//div[contains(@class, "tmd-down")]'
 click = """
-let element = document.querySelector('div.tmd-down');
+let element = document.querySelector('div[data-testid="cellInnerDiv"]:nth-of-type(1) div[class*="tmd-down"]');
 element.addEventListener('click', () => hasClickEvent = true);
 element.dispatchEvent(new Event('click'));
 """ # Avoid being unable to download images of private posts

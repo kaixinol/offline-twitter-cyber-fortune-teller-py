@@ -7,7 +7,7 @@ thread = nan # nan means os.cpu_count()
 # thread value only allows NaN or integer values
 llm_api_slow_mode = false
 twitter_access_slow_mode = false
-pages = 50
+pages = 10
 delay = 5000 # ms
 [llm_setting]
 model = "gpt3.5 turbo"
