@@ -10,6 +10,8 @@ from jq import compile
 from playwright.async_api import Page, Error
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 import asyncio
+
+
 from . import xpath, config, inject
 from .data_type import Profile, Tweet
 
@@ -31,22 +33,46 @@ async def crawl_profile(page: Page) -> Profile:
     member = get_type_hints(Profile)
     ret = {}
     for i in member.keys():
+        _ = get_jq_result(getattr(xpath.profile_json.jq, i), json_text)
         if i not in handler:
-            ret[i] = get_jq_result(getattr(xpath.profile_json.jq, i), json_text)
+            ret[i] = _
         else:
-            ret[i] = handler[i](
-                get_jq_result(getattr(xpath.profile_json.jq, i), json_text)
-            )
+            ret[i] = handler[i](_)
     return Profile(**ret)
 
 
 async def crawl_tweet(
     page: Page, url_with_time: tuple[datetime, str], progress
-) -> Tweet:
+) -> Tweet | list[Tweet]:
     (
         time,
         url,
     ) = url_with_time
+
+    async def get_comment() -> list[Tweet] | None:
+        comment = await page.locator(
+            xpath.tweet.comment.format(
+                name=re.match(config.user_name_regex, page.url).group("name")
+            )
+        ).all()
+        if len(comment) == 1:
+            return
+        return [
+            Tweet(
+                link="https://x.com"
+                + await _.locator(xpath.tweet.link).get_attribute("href"),
+                time=datetime.fromisoformat(
+                    (
+                        await _.locator(xpath.tweet.link)
+                        .locator("time")
+                        .get_attribute("datetime")
+                    ).rstrip("Z")
+                ),
+                text=await _.locator(xpath.tweet.text).inner_text(),
+                media=None,
+            )
+            for _ in comment
+        ]
 
     async def get_media() -> list[str] | None:
         with suppress(PlaywrightTimeoutError):
@@ -106,10 +132,16 @@ async def crawl_tweet(
     )
     frame = page.locator(xpath.tweet.frame)
     await frame.first.wait_for(state="visible", timeout=config.delay)
-    ret: dict[str, str | datetime | None] = {}
     progress.update()
-    ret["link"] = url
-    ret["time"] = time
-    ret["text"] = await get_text()
-    ret["media"] = await get_media()
-    return Tweet(**ret)
+    comments = None
+    try:
+        comments = await get_comment()
+    except PlaywrightTimeoutError:
+        await page.pause()
+    if comments is None:
+        return Tweet(
+            link=url, time=time, text=await get_text(), media=await get_media()
+        )
+    return comments + [
+        Tweet(link=url, time=time, text=await get_text(), media=await get_media())
+    ]

@@ -10,14 +10,16 @@ follower = '.author.interactionStatistic[] | select(.name == "Friends").userInte
 tweet_count = '.author.interactionStatistic[] | select(.name == "Tweets").userInteractionCount'
 join_time = '.dateCreated'
 [tweet]
-link = "//time/parent::a"
+link = "(//a[time])[1]"
 media = '//div[@data-testid="tweetPhoto"] | //div[@data-testid="videoComponent"]'
 text =  '//*[@data-testid="tweetText"]'
 time = "//time/@datetime"
 frame = '(//div[@data-testid="cellInnerDiv"])[1]'
 sensitive_content = "//div/div/div/div/div[2]/div/button"
+comment = "//div[@data-testid='tweetText' and ancestor::div[3]//a[contains(@href, '{name}')]]/ancestor::div[3]"
 [TMD]
 button = '//div[contains(@class, "tmd-down")]'
+# (//div[@data-testid="cellInnerDiv"])[1]//div[contains(@class, "tmd-down")]
 click = """
 let element = document.querySelector('div[data-testid="cellInnerDiv"]:nth-of-type(1) div[class*="tmd-down"]');
 element.addEventListener('click', () => hasClickEvent = true);

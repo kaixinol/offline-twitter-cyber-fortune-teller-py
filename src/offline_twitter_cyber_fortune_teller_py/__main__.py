@@ -8,6 +8,7 @@ from rich.prompt import Prompt, Confirm
 from tqdm.asyncio import tqdm
 
 from . import data_folder, config, xpath
+from .data_type import Tweet
 from .spider import crawl_profile, crawl_tweet
 
 
@@ -108,17 +109,18 @@ async def main():
             async with semaphore:
                 page = available_page.pop()
                 try:
-                    print(await crawl_tweet(page, url, progress))  # TODO: 实现LLM分析
+                    return await crawl_tweet(page, url, progress)  # TODO: 实现LLM分析
                 finally:
                     available_page.append(page)
 
-        tasks = await asyncio.gather(
+        tasks: tuple[BaseException | Tweet] | set = await asyncio.gather(
             *(worker(_) for _ in ordered_url), return_exceptions=True
         )
         await browser.close()
     for task in tasks:
         if isinstance(task, Exception):
-            print(f"{task.with_traceback()}")
+            print(f"{task!r}")
+    print(tasks)
 
 
 asyncio.run(main())

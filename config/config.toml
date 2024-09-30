@@ -9,6 +9,7 @@ llm_api_slow_mode = false
 twitter_access_slow_mode = false
 pages = 10
 delay = 5000 # ms
+user_name_regex = "https://x.com/(?P<name>(?!\\d)[a-zA-Z0-9_]{1,15})/.+"
 [llm_setting]
 model = "gpt3.5 turbo"
 api_server = "DEFAULT"

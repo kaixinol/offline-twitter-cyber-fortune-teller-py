@@ -32,6 +32,7 @@ class TweetXPath(BaseModel):
     time: str
     frame: str
     sensitive_content: str
+    comment: str
 
 
 class Tweet(BaseModel):
@@ -66,3 +67,4 @@ class TwitterAnalysisConfig(BaseModel):
     llm_setting: LLMSetting
     pages: int
     delay: int
+    user_name_regex: str
