@@ -1,0 +1,27 @@
+[profile_json]
+expr = "//script[@data-testid='UserProfileSchema-test']"
+
+[profile_json.jq]
+nickname = ".author.givenName"
+bio = ".author.description"
+location = ".author.homeLocation.name"
+following = '.author.interactionStatistic[] | select(.name == "Follows").userInteractionCount'
+follower = '.author.interactionStatistic[] | select(.name == "Friends").userInteractionCount'
+tweet_count = '.author.interactionStatistic[] | select(.name == "Tweets").userInteractionCount'
+join_time = '.dateCreated'
+[tweet]
+link = "(//a[time])[1]"
+media = '//div[@data-testid="tweetPhoto"] | //div[@data-testid="videoComponent"]'
+text =  '//*[@data-testid="tweetText"]'
+time = "//time/@datetime"
+frame = '(//div[@data-testid="cellInnerDiv"])[1]'
+sensitive_content = "//div/div/div/div/div[2]/div/button"
+comment = "//div[@data-testid='tweetText' and ancestor::div[3]//a[contains(@href, '{name}')]]/ancestor::div[3]"
+[TMD]
+button = '//div[contains(@class, "tmd-down")]'
+# (//div[@data-testid="cellInnerDiv"])[1]//div[contains(@class, "tmd-down")]
+click = """
+let element = document.querySelector('div[data-testid="cellInnerDiv"]:nth-of-type(1) div[class*="tmd-down"]');
+element.addEventListener('click', () => hasClickEvent = true);
+element.dispatchEvent(new Event('click'));
+""" # Avoid being unable to download images of private posts
