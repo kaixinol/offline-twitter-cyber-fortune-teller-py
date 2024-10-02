@@ -25,7 +25,7 @@ async def crawl_profile(page: Page) -> Profile:
     profile = page.locator(xpath.profile_json.expr)
     json_text = await profile.text_content()
     handler: dict[str, Callable[[str], int | datetime]] = {
-        "followed": int,
+        "following": int,
         "follower": int,
         "tweet_count": int,
         "join_time": lambda x: datetime.fromisoformat(x.rstrip("Z")),
@@ -38,6 +38,7 @@ async def crawl_profile(page: Page) -> Profile:
             ret[i] = _
         else:
             ret[i] = handler[i](_)
+    ret |= {"username": re.match(config.user_name_regex, page.url).group("name")}
     return Profile(**ret)
 
 
@@ -142,6 +143,10 @@ async def crawl_tweet(
         return Tweet(
             link=url, time=time, text=await get_text(), media=await get_media()
         )
-    return comments + [
-        Tweet(link=url, time=time, text=await get_text(), media=await get_media())
-    ]
+    return Tweet(
+        link=url,
+        time=time,
+        text=await get_text(),
+        media=await get_media(),
+        comments=comments,
+    )

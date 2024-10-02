@@ -7,17 +7,18 @@ class JQ(BaseModel):
     nickname: str
     bio: str
     location: str
-    followed: str
+    following: str
     follower: str
     tweet_count: str
     join_time: str
 
 
 class Profile(JQ):
-    followed: int
+    following: int
     follower: int
     tweet_count: int
     join_time: datetime
+    username: str
 
 
 class ProfileJson(BaseModel):
@@ -40,6 +41,7 @@ class Tweet(BaseModel):
     media: list[str] | None
     text: str | None
     link: str
+    comments: list["Tweet"] = None
 
 
 class TwitterMediaDownloader(BaseModel):
@@ -63,7 +65,6 @@ class TwitterAnalysisConfig(BaseModel):
     prompt: str
     thread: int | float
     llm_api_slow_mode: bool
-    twitter_access_slow_mode: bool
     llm_setting: LLMSetting
     pages: int
     delay: int

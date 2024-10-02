@@ -120,7 +120,6 @@ async def main():
     for task in tasks:
         if isinstance(task, Exception):
             print(f"{task!r}")
-    print(tasks)
 
 
 asyncio.run(main())
