@@ -100,11 +100,11 @@ number of following is: {following}
             if i.text is None and i.media:
                 desc += f"\n{retweet.format(name=usr)}:\n<{only_image.format(count=(len(i.media) if i.media else 'zero'))}>"
             elif i.text and i.media:
-                desc += f"\n{retweet.format(name=usr)}\n<{have_image.format(count=(len(i.media) if i.media else 'zero'))}>"
+                desc += f"\n{retweet.format(name=usr)}\n{i.text}\n<{have_image.format(count=(len(i.media) if i.media else 'zero'))}>"
             elif i.text and i.media is None:
                 desc += f"\n{retweet.format(name=usr)}:\n{i.text}"
-            if i.comments is not None:
-                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments])}"
+            if i.comments:
+                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments if _.text != i.text])}"
         else:
             if i.text is None and i.media:
                 desc += f"\n<{only_image.format(count=(len(i.media) if i.media else 'zero'))}>"
@@ -112,8 +112,8 @@ number of following is: {following}
                 desc += f"\n{i.text}\n<{have_image.format(count=(len(i.media) if i.media else 'zero'))}>"
             elif i.text and i.media is None:
                 desc += f"\n{i.text}"
-            if i.comments is not None:
-                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments])}"
+            if i.comments:
+                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments if _.text != i.text])}"
 
     return desc
 
@@ -132,17 +132,3 @@ test_tweet = [
     ),
     get_test_data(data={"text": "test3", "media": ["test"]}),
 ]
-
-parse_to_str(
-    test_tweet,
-    Profile(
-        username="test",
-        nickname="tt",
-        bio="test",
-        location="hell",
-        following=12,
-        follower=20,
-        tweet_count=20,
-        join_time=datetime(1, 2, 3),
-    ),
-)

@@ -15,6 +15,8 @@ import asyncio
 from . import xpath, config, inject
 from .data_type import Profile, Tweet
 
+username: str = ""
+
 
 async def crawl_profile(page: Page) -> Profile:
     def get_jq_result(expr: str, json: str | dict) -> str:
@@ -31,6 +33,7 @@ async def crawl_profile(page: Page) -> Profile:
         "join_time": lambda x: datetime.fromisoformat(x.rstrip("Z")),
     }
     member = get_type_hints(Profile)
+    member.pop("username")
     ret = {}
     for i in member.keys():
         _ = get_jq_result(getattr(xpath.profile_json.jq, i), json_text)
@@ -39,6 +42,8 @@ async def crawl_profile(page: Page) -> Profile:
         else:
             ret[i] = handler[i](_)
     ret |= {"username": re.match(config.user_name_regex, page.url).group("name")}
+    global username
+    username = ret["username"]
     return Profile(**ret)
 
 
@@ -51,11 +56,7 @@ async def crawl_tweet(
     ) = url_with_time
 
     async def get_comment() -> list[Tweet] | None:
-        comment = await page.locator(
-            xpath.tweet.comment.format(
-                name=re.match(config.user_name_regex, page.url).group("name")
-            )
-        ).all()
+        comment = await page.locator(xpath.tweet.comment.format(name=username)).all()
         if len(comment) == 1:
             return
         return [
@@ -116,11 +117,12 @@ async def crawl_tweet(
             )
             return (
                 replace_emoji(
-                    html2text(await page.locator(xpath.tweet.text).inner_text())
+                    html2text(await page.locator(xpath.tweet.text).first.inner_text())
                 ).strip()
                 or None
             )
         except Error:
+            await page.pause()
             return None
 
     await page.goto(url, wait_until="domcontentloaded")
@@ -134,7 +136,7 @@ async def crawl_tweet(
     frame = page.locator(xpath.tweet.frame)
     await frame.first.wait_for(state="visible", timeout=config.delay)
     progress.update()
-    comments = None
+    comments: list[Tweet] | None = None
     try:
         comments = await get_comment()
     except PlaywrightTimeoutError:

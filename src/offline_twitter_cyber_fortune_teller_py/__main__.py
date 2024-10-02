@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 import asyncio
+from time import sleep
 
 from playwright.async_api import async_playwright, TimeoutError
 from rich.progress import track
@@ -8,8 +9,8 @@ from rich.prompt import Prompt, Confirm
 from tqdm.asyncio import tqdm
 
 from . import data_folder, config, xpath
-from .data_type import Tweet
 from .spider import crawl_profile, crawl_tweet
+from .analyzer import parse_to_str, run
 
 
 async def set_cookie():
@@ -113,13 +114,26 @@ async def main():
                 finally:
                     available_page.append(page)
 
-        tasks: tuple[BaseException | Tweet] | set = await asyncio.gather(
-            *(worker(_) for _ in ordered_url), return_exceptions=True
+        tasks: list = list(
+            await asyncio.gather(
+                *(worker(_) for _ in ordered_url), return_exceptions=True
+            )
         )
         await browser.close()
     for task in tasks:
         if isinstance(task, Exception):
             print(f"{task!r}")
+            tasks.remove(task)
+    gpt_dict = [
+        {"role": "assistant", "content": config.prompt},
+        {"role": "user", "content": parse_to_str(list(tasks), user_profile)},
+    ]
+    stream = await run(gpt_dict)
+    async for chunk in stream:
+        print(chunk.choices[0].delta.content or "", end="")
+    sleep(20)
+    print("\n\n")
+    print(gpt_dict)
 
 
 asyncio.run(main())

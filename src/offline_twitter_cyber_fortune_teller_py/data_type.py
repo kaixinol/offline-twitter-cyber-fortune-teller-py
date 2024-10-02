@@ -41,7 +41,7 @@ class Tweet(BaseModel):
     media: list[str] | None
     text: str | None
     link: str
-    comments: list["Tweet"] = None
+    comments: list["Tweet"] | None = None
 
 
 class TwitterMediaDownloader(BaseModel):
@@ -64,7 +64,6 @@ class LLMSetting(BaseModel):
 class TwitterAnalysisConfig(BaseModel):
     prompt: str
     thread: int | float
-    llm_api_slow_mode: bool
     llm_setting: LLMSetting
     pages: int
     delay: int
