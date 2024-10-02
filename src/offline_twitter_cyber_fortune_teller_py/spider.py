@@ -137,18 +137,21 @@ async def crawl_tweet(
     await frame.first.wait_for(state="visible", timeout=config.delay)
     progress.update()
     comments: list[Tweet] | None = None
+    media: list[str] | None = None
     try:
         comments = await get_comment()
     except PlaywrightTimeoutError:
         await page.pause()
+    try:
+        media = await asyncio.wait_for(get_media(), timeout=5)
+    except asyncio.TimeoutError:
+        pass
     if comments is None:
-        return Tweet(
-            link=url, time=time, text=await get_text(), media=await get_media()
-        )
+        return Tweet(link=url, time=time, text=await get_text(), media=media)
     return Tweet(
         link=url,
         time=time,
         text=await get_text(),
-        media=await get_media(),
+        media=media,
         comments=comments,
     )
