@@ -1,6 +1,6 @@
 [project]
 name = "offline-twitter-cyber-fortune-teller-py"
-version = "0.2.0"
+version = "1.0"
 description = "Default template for PDM package"
 authors = [
     {name = "kaesinol", email = "keiplyer@gmail.com"},
