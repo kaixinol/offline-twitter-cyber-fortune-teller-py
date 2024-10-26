@@ -41,42 +41,11 @@ def get_test_data(*, data=None, username: str = None) -> Tweet:
 
 def parse_to_str(tweet: list[Tweet], profile: Profile) -> str:
     def extra_username(_tweet: Tweet) -> str:
-        return re.match(config.user_name_regex, _tweet.link).group("name")
+        _ = re.search(config.user_name_regex, _tweet.link)
+        if _ is None:
+            print(_tweet.link)
+        return _.group("name") if _ is not None else "<unknown_user>"
 
-    def remove_same_tweet():
-        from functools import reduce
-
-        def process_tweets(tweets):
-            tweet_map = {hash(t.link): [id(t)] for t in tweets if t.comments is None}
-            comment_map = reduce(
-                lambda acc, t: acc.update(
-                    {
-                        hash(c.link): acc.get(hash(c.link), []) + [id(t)]
-                        for c in t.comments
-                    }
-                )
-                or acc,
-                filter(lambda t: t.comments is not None, tweets),
-                {},
-            )
-
-            return tweet_map, comment_map
-
-        hash_map, hash_map_comment = process_tweets(tweet)
-
-        handle_items = set(hash_map) & set(hash_map_comment)
-
-        tweet[:] = [
-            tw
-            for tw in tweet
-            if id(tw)
-            not in reduce(lambda acc, h: acc + hash_map.get(h, []), handle_items, [])
-        ]
-
-        for h in handle_items:
-            print(f"removed! {hash_map[h]}")
-
-    remove_same_tweet()
     have_image = "This tweet also contains {count} media"
     only_image = "This tweet contains only {count} media and no text"
     retweet = "This user retweeted {name}'s tweet"
@@ -88,9 +57,9 @@ username is: {username},
 bio is: {bio}, 
 location is: {location},
 count of tweets is: {tweet_count},
-number of followers is: {follower},
-number of following is: {following}
-""".strip()
+number of followed is: {follower},
+number of follower is: {following}
+    """.strip()
     desc = user_desc.format(**profile.model_dump())
     for i in tweet:
         desc += "\n" + "-" * 5
@@ -98,22 +67,24 @@ number of following is: {following}
         desc += "\nPost Date:" + str(i.time)
         if usr != profile.username:
             if i.text is None and i.media:
-                desc += f"\n{retweet.format(name=usr)}:\n<{only_image.format(count=(len(i.media) if i.media else 'zero'))}>"
+                desc += f"\n{retweet.format(name=usr)}:\n<{only_image.format(count=len(i.media))}>"
             elif i.text and i.media:
-                desc += f"\n{retweet.format(name=usr)}\n{i.text}\n<{have_image.format(count=(len(i.media) if i.media else 'zero'))}>"
+                desc += f"\n{retweet.format(name=usr)}\n{i.text}\n<{have_image.format(count=len(i.media))}>"
             elif i.text and i.media is None:
                 desc += f"\n{retweet.format(name=usr)}:\n{i.text}"
             if i.comments:
-                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments if _.text != i.text])}"
+                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments
+                                                                                           if _.text != i.text])}"
         else:
             if i.text is None and i.media:
-                desc += f"\n<{only_image.format(count=(len(i.media) if i.media else 'zero'))}>"
+                desc += f"\n<{only_image.format(count=len(i.media))}>"
             elif i.text and i.media:
-                desc += f"\n{i.text}\n<{have_image.format(count=(len(i.media) if i.media else 'zero'))}>"
+                desc += f"\n{i.text}\n<{have_image.format(count=len(i.media))}>"
             elif i.text and i.media is None:
                 desc += f"\n{i.text}"
             if i.comments:
-                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments if _.text != i.text])}"
+                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments
+                                                                                           if _.text != i.text])}"
 
     return desc
 
@@ -132,3 +103,18 @@ test_tweet = [
     ),
     get_test_data(data={"text": "test3", "media": ["test"]}),
 ]
+print(
+    parse_to_str(
+        test_tweet,
+        Profile(
+            username="test",
+            nickname="tt",
+            bio="test",
+            location="hell",
+            following=12,
+            follower=20,
+            tweet_count=20,
+            join_time=datetime(1, 2, 3),
+        ),
+    )
+)

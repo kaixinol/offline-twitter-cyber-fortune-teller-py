@@ -2,20 +2,32 @@ import re
 from collections.abc import Callable
 from contextlib import suppress
 from datetime import datetime
+from functools import wraps
 from json import loads
 from typing import get_type_hints
-
 from html2text import html2text
 from jq import compile
 from playwright.async_api import Page, Error
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 import asyncio
 
-
 from . import xpath, config, inject
 from .data_type import Profile, Tweet
 
-username: str = ""
+__username: str = ""
+
+
+def exception_add_url(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            url_with_time = kwargs.get("url_with_time") or args[1]
+            new_message = f"URL: {url_with_time[1]}\n:{str(e)}"
+            raise type(e)(new_message).with_traceback(e.__traceback__)
+
+    return wrapper
 
 
 async def crawl_profile(page: Page) -> Profile:
@@ -41,12 +53,15 @@ async def crawl_profile(page: Page) -> Profile:
             ret[i] = _
         else:
             ret[i] = handler[i](_)
-    ret |= {"username": re.match(config.user_name_regex, page.url).group("name")}
-    global username
-    username = ret["username"]
+        if ret[i] is None:
+            ret[i] = "unknown"
+    ret["username"] = re.search(config.user_name_regex, page.url).group("name")
+    global __username
+    __username = ret["username"]
     return Profile(**ret)
 
 
+@exception_add_url
 async def crawl_tweet(
     page: Page, url_with_time: tuple[datetime, str], progress
 ) -> Tweet | list[Tweet]:
@@ -56,8 +71,8 @@ async def crawl_tweet(
     ) = url_with_time
 
     async def get_comment() -> list[Tweet] | None:
-        comment = await page.locator(xpath.tweet.comment.format(name=username)).all()
-        if len(comment) == 1:
+        comment = await page.locator(xpath.tweet.comment.format(name=__username)).all()
+        if len(comment) in (0, 1):
             return
         return [
             Tweet(
@@ -96,7 +111,7 @@ async def crawl_tweet(
             return None
 
     async def get_text() -> str | None:
-        def replace_emoji(string: str) -> str:
+        def replace_emoji(string: str) -> str:  # TODO: fix emoji missing bug
             regex = r"!\[(.*?)]\(https://.*\.twimg\.com/emoji/(.*?)\.svg\)"
             if re.search(
                 regex,
@@ -122,8 +137,37 @@ async def crawl_tweet(
                 or None
             )
         except Error:
-            await page.pause()
             return None
+
+    async def get_fallback_text() -> str:
+        def find_nth_occurrence(
+            string: str, substring: str, n: int, from_right: bool = False
+        ) -> int:
+            """
+            Function to find the position of the nth occurrence of a substring
+            Also supports searching from the right and returns the count starting from the right
+            """
+            if from_right:
+                reverse_index = len(string)
+                for _ in range(n):
+                    reverse_index = string.rfind(substring, 0, reverse_index)
+                    if reverse_index == -1:
+                        return -1
+                return reverse_index
+            else:
+                index = -1
+                for _ in range(n):
+                    index = string.find(substring, index + 1)
+                    if index == -1:
+                        return -1
+                return index
+
+        _tmp = html2text(await frame.inner_html())
+        return _tmp[
+            find_nth_occurrence(_tmp, "\n\n", 4) : find_nth_occurrence(
+                _tmp, "\n\n", 8, from_right=True
+            )
+        ].replace("\n\n", "\n")
 
     await page.goto(url, wait_until="domcontentloaded")
     await page.evaluate(inject)
@@ -133,25 +177,29 @@ async def crawl_tweet(
         if request.resource_type in ["image", "media"]
         else route.continue_(),
     )
-    frame = page.locator(xpath.tweet.frame)
+    frame = page.locator(
+        xpath.tweet.frame.format(tweet_id=re.search(r"(\d+)(?!.*\d)", url).group())
+    )
     await frame.first.wait_for(state="visible", timeout=config.delay)
     progress.update()
     comments: list[Tweet] | None = None
-    media: list[str] | None = None
     try:
         comments = await get_comment()
     except PlaywrightTimeoutError:
-        await page.pause()
-    try:
-        media = await asyncio.wait_for(get_media(), timeout=5)
-    except asyncio.TimeoutError:
         pass
+    try:
+        data = {
+            "text": await get_text(),
+            "media": await asyncio.wait_for(get_media(), timeout=5),
+        }
+    except asyncio.TimeoutError:
+        text = await get_fallback_text()
+        data = {"text": text, "media": None}
     if comments is None:
-        return Tweet(link=url, time=time, text=await get_text(), media=media)
+        return Tweet(link=url, time=time, **data)
     return Tweet(
         link=url,
         time=time,
-        text=await get_text(),
-        media=media,
+        **data,
         comments=comments,
     )

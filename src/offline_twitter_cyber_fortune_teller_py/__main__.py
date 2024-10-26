@@ -3,14 +3,21 @@ from pathlib import Path
 import asyncio
 from time import sleep
 
-from playwright.async_api import async_playwright, TimeoutError
+from rich.console import Console
+
+from playwright.async_api import async_playwright, Locator
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from rich.progress import track
 from rich.prompt import Prompt, Confirm
+from rich.text import Text
 from tqdm.asyncio import tqdm
 
 from . import data_folder, config, xpath
+from .data_type import Tweet
 from .spider import crawl_profile, crawl_tweet
 from .analyzer import parse_to_str, run
+
+console = Console()
 
 
 async def set_cookie():
@@ -66,7 +73,9 @@ async def main():
         while not (num >= min(config.pages, user_profile.tweet_count)):
             await main_page.evaluate("window.scrollBy(0, 300)")
 
-            async def get_tweet_link(element) -> list[tuple[datetime, str]]:
+            async def get_tweet_link(
+                element: list[Locator],
+            ) -> list[tuple[datetime, str]]:
                 ret = []
                 for i in element:
                     try:
@@ -75,14 +84,14 @@ async def main():
                                 datetime.fromisoformat(
                                     (
                                         await i.locator("time").get_attribute(
-                                            "datetime"
+                                            "datetime", timeout=300
                                         )
                                     ).rstrip("Z")
                                 ),
-                                await i.get_attribute("href"),
+                                await i.get_attribute("href", timeout=300),
                             )
                         )
-                    except TimeoutError:
+                    except PlaywrightTimeoutError:
                         continue
                 return ret
 
@@ -110,20 +119,21 @@ async def main():
             async with semaphore:
                 page = available_page.pop()
                 try:
-                    return await crawl_tweet(page, url, progress)  # TODO: 实现LLM分析
+                    return await crawl_tweet(page, url, progress)
                 finally:
                     available_page.append(page)
 
-        tasks: list = list(
+        tasks: list[BaseException | Tweet] = list(
             await asyncio.gather(
                 *(worker(_) for _ in ordered_url), return_exceptions=True
             )
         )
         await browser.close()
     for task in tasks:
-        if isinstance(task, Exception):
-            print(f"{task!r}")
-            tasks.remove(task)
+        if isinstance(task, BaseException):
+            console.print(Text(f"{task!r}"), style="red")
+    tasks = [task for task in tasks if not isinstance(task, BaseException)]
+
     gpt_dict = [
         {"role": "assistant", "content": config.prompt},
         {"role": "user", "content": parse_to_str(list(tasks), user_profile)},
