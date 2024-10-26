@@ -6,7 +6,7 @@ The analysis should be concise and insightful.
 thread = nan # nan means os.cpu_count()
 # thread value only allows NaN or integer values
 twitter_access_slow_mode = false
-pages = 20
+pages = 50
 delay = 5000 # ms
 user_name_regex = "https://x.com/(?P<name>(?!\\d)[a-zA-Z0-9_]{1,15})/?.*"
 [llm_setting]
