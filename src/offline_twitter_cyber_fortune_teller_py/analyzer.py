@@ -21,7 +21,10 @@ async def run(msg: list):
 
 def parse_to_str(tweet: list[Tweet], profile: Profile) -> str:
     def extra_username(_tweet: Tweet) -> str:
-        return re.match(config.user_name_regex, _tweet.link).group("name")
+        _ = re.search(config.user_name_regex, _tweet.link)
+        if _ is None:
+            print(_tweet.link)
+        return _.group("name") if _ is not None else "<unknown_user>"
 
     have_image = "This tweet also contains {count} media"
     only_image = "This tweet contains only {count} media and no text"
@@ -34,8 +37,8 @@ username is: {username},
 bio is: {bio}, 
 location is: {location},
 count of tweets is: {tweet_count},
-number of followers is: {follower},
-number of following is: {following}
+number of followed is: {follower},
+number of follower is: {following}
 """.strip()
     desc = user_desc.format(**profile.model_dump())
     for i in tweet:
@@ -44,21 +47,23 @@ number of following is: {following}
         desc += "\nPost Date:" + str(i.time)
         if usr != profile.username:
             if i.text is None and i.media:
-                desc += f"\n{retweet.format(name=usr)}:\n<{only_image.format(count=(len(i.media) if i.media else 'zero'))}>"
+                desc += f"\n{retweet.format(name=usr)}:\n<{only_image.format(count=len(i.media))}>"
             elif i.text and i.media:
-                desc += f"\n{retweet.format(name=usr)}\n{i.text}\n<{have_image.format(count=(len(i.media) if i.media else 'zero'))}>"
+                desc += f"\n{retweet.format(name=usr)}\n{i.text}\n<{have_image.format(count=len(i.media))}>"
             elif i.text and i.media is None:
                 desc += f"\n{retweet.format(name=usr)}:\n{i.text}"
             if i.comments:
-                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments if _.text != i.text])}"
+                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments
+                                                                                       if _.text != i.text])}"
         else:
             if i.text is None and i.media:
-                desc += f"\n<{only_image.format(count=(len(i.media) if i.media else 'zero'))}>"
+                desc += f"\n<{only_image.format(count=len(i.media))}>"
             elif i.text and i.media:
-                desc += f"\n{i.text}\n<{have_image.format(count=(len(i.media) if i.media else 'zero'))}>"
+                desc += f"\n{i.text}\n<{have_image.format(count=len(i.media))}>"
             elif i.text and i.media is None:
                 desc += f"\n{i.text}"
             if i.comments:
-                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments if _.text != i.text])}"
+                desc += f"\n{have_comment.format(user=profile.username)}:\n{'\n'.join([_.text for _ in i.comments 
+                                                                                       if _.text != i.text])}"
 
     return desc

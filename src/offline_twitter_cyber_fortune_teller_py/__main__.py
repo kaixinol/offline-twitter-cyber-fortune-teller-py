@@ -2,12 +2,14 @@ from datetime import datetime
 from pathlib import Path
 import asyncio
 from time import sleep
+
 from rich.console import Console
 
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, Locator
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from rich.progress import track
 from rich.prompt import Prompt, Confirm
+from rich.text import Text
 from tqdm.asyncio import tqdm
 
 from . import data_folder, config, xpath
@@ -71,7 +73,9 @@ async def main():
         while not (num >= min(config.pages, user_profile.tweet_count)):
             await main_page.evaluate("window.scrollBy(0, 300)")
 
-            async def get_tweet_link(element) -> list[tuple[datetime, str]]:
+            async def get_tweet_link(
+                element: list[Locator],
+            ) -> list[tuple[datetime, str]]:
                 ret = []
                 for i in element:
                     try:
@@ -80,11 +84,11 @@ async def main():
                                 datetime.fromisoformat(
                                     (
                                         await i.locator("time").get_attribute(
-                                            "datetime"
+                                            "datetime", timeout=300
                                         )
                                     ).rstrip("Z")
                                 ),
-                                await i.get_attribute("href"),
+                                await i.get_attribute("href", timeout=300),
                             )
                         )
                     except PlaywrightTimeoutError:
@@ -127,9 +131,9 @@ async def main():
         await browser.close()
     for task in tasks:
         if isinstance(task, BaseException):
-            console.print(f"{task!r}", style="red")
+            console.print(Text(f"{task!r}"), style="red")
     tasks = [task for task in tasks if not isinstance(task, BaseException)]
-    print(repr(list(tasks)))
+
     gpt_dict = [
         {"role": "assistant", "content": config.prompt},
         {"role": "user", "content": parse_to_str(list(tasks), user_profile)},

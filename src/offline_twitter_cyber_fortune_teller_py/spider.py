@@ -14,7 +14,7 @@ import asyncio
 from . import xpath, config, inject
 from .data_type import Profile, Tweet
 
-username: str = ""
+__username: str = ""
 
 
 def exception_add_url(func):
@@ -53,9 +53,11 @@ async def crawl_profile(page: Page) -> Profile:
             ret[i] = _
         else:
             ret[i] = handler[i](_)
-    ret["username"] = re.match(config.user_name_regex, page.url).group("name")
-    global username
-    username = ret["username"]
+        if ret[i] is None:
+            ret[i] = "unknown"
+    ret["username"] = re.search(config.user_name_regex, page.url).group("name")
+    global __username
+    __username = ret["username"]
     return Profile(**ret)
 
 
@@ -69,7 +71,7 @@ async def crawl_tweet(
     ) = url_with_time
 
     async def get_comment() -> list[Tweet] | None:
-        comment = await page.locator(xpath.tweet.comment.format(name=username)).all()
+        comment = await page.locator(xpath.tweet.comment.format(name=__username)).all()
         if len(comment) in (0, 1):
             return
         return [
@@ -109,7 +111,7 @@ async def crawl_tweet(
             return None
 
     async def get_text() -> str | None:
-        def replace_emoji(string: str) -> str:
+        def replace_emoji(string: str) -> str:  # TODO: fix emoji missing bug
             regex = r"!\[(.*?)]\(https://.*\.twimg\.com/emoji/(.*?)\.svg\)"
             if re.search(
                 regex,
@@ -175,7 +177,9 @@ async def crawl_tweet(
         if request.resource_type in ["image", "media"]
         else route.continue_(),
     )
-    frame = page.locator(xpath.tweet.frame)
+    frame = page.locator(
+        xpath.tweet.frame.format(tweet_id=re.search(r"(\d+)(?!.*\d)", url).group())
+    )
     await frame.first.wait_for(state="visible", timeout=config.delay)
     progress.update()
     comments: list[Tweet] | None = None
